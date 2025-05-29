@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres-age-vector
+    image: lightrag-postgres-age-vector:latest
+    container_name: lightrag-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DATABASE:-lightrag}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DATABASE:-lightrag}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    env_file:
+      - .env
+
+volumes:
+  postgres_data: 

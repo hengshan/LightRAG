@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  postgres:
+    # Use our custom PostgreSQL image with AGE and pgvector
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres-age-vector
+    image: lightrag-postgres-age-vector:latest
+    container_name: lightrag-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DATABASE:-lightrag}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DATABASE:-lightrag}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    env_file:
+      - .env
+    networks:
+      - lightrag-network
+
+  # Ollama service with GPU support
+  ollama:
+    image: ollama/ollama:latest
+    container_name: lightrag-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - lightrag-network
+
+  lightrag:
+    container_name: lightrag-app
+    image: lightrag-local:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT:-9621}:9621"
+    volumes:
+      - ./data/rag_storage:/app/data/rag_storage
+      - ./data/inputs:/app/data/inputs
+      - ./.env:/app/.env
+    env_file:
+      - .env
+    environment:
+      # Connect to containerized Ollama
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DATABASE: lightrag
+      # Use DeepSeek API for LLM (from .env file) and containerized Ollama for embeddings
+      EMBEDDING_BINDING_HOST: http://ollama:11434
+      # Server configuration - 'gunicorn' for production, 'dev' for development
+      LIGHTRAG_SERVER_TYPE: gunicorn
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    networks:
+      - lightrag-network
+    # Additional GPU support for LightRAG if needed
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  postgres_data:
+  ollama_data:
+
+networks:
+  lightrag-network:
+    driver: bridge 

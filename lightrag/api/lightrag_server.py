@@ -506,8 +506,24 @@ def create_app(args):
             return response
 
     # Webui mount webui/index.html
-    static_dir = Path(__file__).parent / "webui"
-    static_dir.mkdir(exist_ok=True)
+    # Try multiple paths to find the webui directory
+    potential_paths = [
+        Path(__file__).parent / "webui",  # Development/source install
+        Path("/app/lightrag/api/webui"),  # Docker install
+        Path(args.working_dir) / "webui",  # Fallback to working directory
+    ]
+    
+    static_dir = None
+    for path in potential_paths:
+        if path.exists() and (path / "index.html").exists():
+            static_dir = path
+            break
+    
+    if static_dir is None:
+        # Create empty directory as fallback
+        static_dir = Path(__file__).parent / "webui"
+        static_dir.mkdir(exist_ok=True)
+    
     app.mount(
         "/webui",
         SmartStaticFiles(

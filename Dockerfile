@@ -43,14 +43,21 @@ RUN pip install ".[api]"
 ENV PATH=/root/.local/bin:$PATH
 
 # Create necessary directories
-RUN mkdir -p /app/data/rag_storage /app/data/inputs
+RUN mkdir -p /app/data/rag_storage /app/data/inputs /app/logs
 
 # Docker data directories
 ENV WORKING_DIR=/app/data/rag_storage
 ENV INPUT_DIR=/app/data/inputs
 
+# Server configuration - default to production gunicorn
+ENV LIGHTRAG_SERVER_TYPE=gunicorn
+
 # Expose the default port
 EXPOSE 9621
 
+# Create entrypoint script
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 # Set entrypoint
-ENTRYPOINT ["python", "-m", "lightrag.api.lightrag_server"]
+ENTRYPOINT ["/app/entrypoint.sh"]

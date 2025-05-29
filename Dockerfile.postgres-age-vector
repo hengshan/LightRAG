@@ -1,0 +1,38 @@
+# Custom PostgreSQL image with both AGE and pgvector extensions
+FROM postgres:15
+
+# Install dependencies for building extensions
+USER root
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    postgresql-server-dev-15 \
+    cmake \
+    libreadline-dev \
+    zlib1g-dev \
+    flex \
+    bison \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install pgvector extension
+RUN cd /tmp && \
+    git clone --branch v0.8.0 https://github.com/pgvector/pgvector.git && \
+    cd pgvector && \
+    make && \
+    make install
+
+# Install AGE extension
+RUN cd /tmp && \
+    git clone --branch PG15/v1.5.0-rc0 https://github.com/apache/age.git && \
+    cd age && \
+    make PG_CONFIG=/usr/bin/pg_config && \
+    make PG_CONFIG=/usr/bin/pg_config install
+
+# Copy initialization script
+COPY init-postgres-age.sql /docker-entrypoint-initdb.d/
+
+# Switch back to postgres user
+USER postgres
+
+# Expose port
+EXPOSE 5432 
