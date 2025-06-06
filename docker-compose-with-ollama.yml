@@ -53,7 +53,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "${PORT:-9621}:9621"
+      - "0.0.0.0:${PORT:-9621}:9621"
     volumes:
       - ./data/rag_storage:/app/data/rag_storage
       - ./data/inputs:/app/data/inputs
